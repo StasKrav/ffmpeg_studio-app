@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FFmpeg Studio — Профессиональный медиа процессор</title>
+    <style>
+        /* (стили те же, что были, без изменений) */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --bg-elevated: #22222e;
+            --border-subtle: #2a2a36;
+            --text-primary: #f0f0f8;
+            --text-secondary: #a0a0b8;
+            --text-muted: #6e6e86;
+            --accent: #5e6eff;
+            --accent-hover: #7b89ff;
+            --success: #2ecc71;
+            --error: #e74c3c;
+            --gradient-start: #5e6eff;
+            --gradient-end: #b86eff;
+        }
+
+        body {
+            background: var(--bg-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-primary);
+            padding: 32px 24px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #fff 30%, var(--accent) 80%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .logo p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-card);
+            padding: 8px 16px;
+            border-radius: 40px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 18px;
+            border: 1px solid var(--border-subtle);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .card-header h2 {
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-secondary);
+        }
+
+        .card-body {
+            padding: 24px;
+        }
+
+        .upload-zone {
+            border: 1.5px dashed var(--border-subtle);
+            border-radius: 12px;
+            background: var(--bg-secondary);
+            padding: 32px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 20px;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent);
+            background: rgba(94, 110, 255, 0.08);
+        }
+
+        .file-list {
+            max-height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .file-item {
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border-subtle);
+            transition: all 0.2s;
+        }
+
+        .file-item:hover {
+            border-color: var(--accent);
+            background: var(--bg-elevated);
+        }
+
+        .operation-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 28px;
+        }
+
+        @media (max-width: 640px) {
+            .operation-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .op-button {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            padding: 10px 6px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .op-button svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+        }
+
+        .op-button:hover {
+            background: var(--bg-elevated);
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .op-button.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .param-group {
+            margin-bottom: 20px;
+        }
+
+        .param-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .param-group select,
+        .param-group input {
+            width: 100%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        .param-group select:focus,
+        .param-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .param-group option {
+            background: var(--bg-secondary);
+        }
+
+        .btn-primary {
+            width: 100%;
+            background: linear-gradient(105deg, var(--gradient-start), var(--gradient-end));
+            border: none;
+            padding: 12px 16px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            filter: brightness(1.05);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .progress-section {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: var(--border-subtle);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
+            transition: width 0.2s linear;
+        }
+
+        .result-preview {
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            display: none;
+        }
+
+        .result-preview a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 12px 20px;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success { border-left: 3px solid var(--success); }
+        .toast.error { border-left: 3px solid var(--error); }
+        
+        .empty-option {
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="logo">
+            <h1>FFmpeg Studio</h1>
+            <p>Профессиональная обработка медиафайлов</p>
+        </div>
+        <div class="status-indicator">
+            <div class="status-dot"></div>
+            <span>Сервер активен</span>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <div class="card">
+            <div class="card-header">
+                <h2>Медиафайлы</h2>
+            </div>
+            <div class="card-body">
+                <div class="upload-zone" id="uploadZone">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 16V4M8 8L12 4L16 8"/>
+                        <path d="M4 16V18C4 19.1046 4.89543 20 6 20H18C19.1046 20 20 19.1046 20 20V16"/>
+                    </svg>
+                    <div style="font-weight: 500; margin-top: 8px;">Загрузите файлы</div>
+                    <small style="color: var(--text-muted);">Нажмите или перетащите</small>
+                    <input type="file" id="fileInput" multiple accept="video/*,audio/*,image/*" style="display: none;">
+                </div>
+                <div id="fileListContainer" class="file-list"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Операции</h2>
+            </div>
+            <div class="card-body">
+                <div class="operation-grid" id="operationsGrid"></div>
+                <div id="parametersPanel"></div>
+                <button class="btn-primary" id="executeBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" stroke="none"/>
+                    </svg>
+                    Выполнить обработку
+                </button>
+                <div class="progress-section" id="progressSection">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 0.75rem; color: var(--text-muted); text-align: center;" id="progressText">
+                        Ожидание...
+                    </div>
+                </div>
+                <div class="result-preview" id="resultPreview">
+                    <strong>✓ Готово!</strong><br>
+                    <a href="#" id="downloadLink" download>Скачать результат</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+    let uploadedFiles = [];
+    let currentOperation = 'photo-music';
+    let isProcessing = false;
+
+    const OPERATIONS = [
+        { id: 'photo-music', label: 'Фото + Музыка', icon: '<path d="M4 16L10 10L13 13L20 6M4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20Z"/><circle cx="8" cy="10" r="2"/>' },
+        { id: 'convert', label: 'Конвертация', icon: '<path d="M12 4V20M8 8L12 4L16 8M8 16L12 20L16 16"/><path d="M4 12H20"/>' },
+        { id: 'extract', label: 'Извлечь аудио', icon: '<path d="M9 2L9 8M9 8L12 5M9 8L6 5M12 2V8M15 4L15 18C15 20.2091 13.2091 22 11 22H9C6.79086 22 5 20.2091 5 18L5 4"/>' },
+        { id: 'compress', label: 'Сжатие', icon: '<path d="M4 20L20 20M12 4L12 16M9 13L12 16L15 13"/>' },
+        { id: 'trim', label: 'Обрезка', icon: '<path d="M8 6H20M8 6L12 2M8 6L12 10M18 18H6M18 18L14 22M18 18L14 14"/>' },
+        { id: 'thumbnail', label: 'Превью', icon: '<rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="10" r="2"/>' },
+        { id: 'merge', label: 'Склеить', icon: '<path d="M8 4H20L20 12M8 4L12 8M8 4L12 0M16 20H4V12M16 20L12 16M16 20L12 24"/>' },
+        { id: 'speed', label: 'Скорость', icon: '<path d="M12 4V20M8 8L12 4L16 8M8 16L12 20L16 16"/><circle cx="12" cy="12" r="2"/>' }
+    ];
+
+    function showToast(msg, type = 'info') {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.className = `toast ${type} show`;
+        setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    function renderFileList() {
+        const container = document.getElementById('fileListContainer');
+        if (!uploadedFiles.length) {
+            container.innerHTML = '<div style="text-align: center; padding: 24px; color: var(--text-muted);">Нет загруженных файлов</div>';
+            return;
+        }
+        
+        container.innerHTML = uploadedFiles.map(file => `
+            <div class="file-item" data-id="${file.id}">
+                <div style="display: flex; align-items: center; gap: 10px; overflow: hidden; flex: 1;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M13 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V9L13 2Z"/>
+                        <path d="M13 2V9H20"/>
+                    </svg>
+                    <div>
+                        <div style="font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">${escapeHtml(file.originalName)}</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">${formatBytes(file.size)}</div>
+                    </div>
+                </div>
+                <button class="remove-file" data-id="${file.id}" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; font-size: 16px;">✕</button>
+            </div>
+        `).join('');
+        
+        document.querySelectorAll('.remove-file').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                uploadedFiles = uploadedFiles.filter(f => f.id !== id);
+                renderFileList();
+                updateParametersUI();
+                showToast('Файл удалён', 'info');
+            });
+        });
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    function getFilesByType(type) {
+        const typeMap = {
+            image: ['jpg','jpeg','png','gif','bmp','webp'],
+            video: ['mp4','avi','mkv','mov','webm','flv','m4v','mpg','mpeg'],
+            audio: ['mp3','wav','ogg','aac','flac','m4a','opus']
+        };
+        const extensions = typeMap[type] || [];
+        const filtered = uploadedFiles.filter(f => {
+            const ext = f.originalName.split('.').pop().toLowerCase();
+            return extensions.includes(ext);
+        });
+        
+        if (filtered.length === 0) {
+            return '<option value="" disabled selected style="color: var(--text-muted);">— нет доступных файлов —</option>';
+        }
+        
+        return filtered.map(f => `<option value="${f.id}">${escapeHtml(f.originalName)}</option>`).join('');
+    }
+
+    function getParametersHTML() {
+        const templates = {
+            'photo-music': `
+                <div class="param-group"><label>Изображение</label><select id="param1">${getFilesByType('image')}</select></div>
+                <div class="param-group"><label>Аудиодорожка</label><select id="param2">${getFilesByType('audio')}</select></div>
+                <div class="param-group"><label>Выходной формат</label><select id="format"><option value="mp4">MP4</option><option value="mkv">MKV</option><option value="webm">WebM</option></select></div>
+                <div class="param-group"><label>Качество</label><select id="quality"><option value="23">Стандартное</option><option value="28">Высокое сжатие</option><option value="18">Отличное</option></select></div>
+            `,
+            'convert': `
+                <div class="param-group"><label>Исходный файл</label><select id="param1">${getFilesByType('video')}${getFilesByType('audio')}</select></div>
+                <div class="param-group"><label>Целевой формат</label><select id="format"><option value="mp4">MP4</option><option value="avi">AVI</option><option value="mkv">MKV</option><option value="webm">WebM</option><option value="mp3">MP3</option></select></div>
+            `,
+            'extract': `
+                <div class="param-group"><label>Видеофайл</label><select id="param1">${getFilesByType('video')}</select></div>
+                <div class="param-group"><label>Аудиоформат</label><select id="format"><option value="mp3">MP3</option><option value="aac">AAC</option><option value="ogg">OGG</option></select></div>
+            `,
+            'compress': `
+                <div class="param-group"><label>Видеофайл</label><select id="param1">${getFilesByType('video')}</select></div>
+                <div class="param-group"><label>Степень сжатия</label><select id="quality"><option value="28">Максимальное (меньше размер)</option><option value="23">Сбалансированное</option><option value="18">Минимальное (лучше качество)</option></select></div>
+            `,
+            'trim': `
+                <div class="param-group"><label>Файл</label><select id="param1">${getFilesByType('video')}${getFilesByType('audio')}</select></div>
+                <div class="param-group"><label>Начало (сек)</label><input type="number" id="start" value="0" step="1"></div>
+                <div class="param-group"><label>Длительность (сек)</label><input type="number" id="duration" value="10" step="1"></div>
+            `,
+            'thumbnail': `
+                <div class="param-group"><label>Видеофайл</label><select id="param1">${getFilesByType('video')}</select></div>
+                <div class="param-group"><label>Время кадра (сек)</label><input type="number" id="time" value="5" step="1"></div>
+                <div class="param-group"><label>Размер</label><select id="size"><option value="640x480">640x480</option><option value="1280x720">1280x720</option><option value="1920x1080">1920x1080</option></select></div>
+            `,
+            'merge': `
+                <div class="param-group"><label>Файл 1</label><select id="param1">${getFilesByType('video')}${getFilesByType('audio')}</select></div>
+                <div class="param-group"><label>Файл 2</label><select id="param2">${getFilesByType('video')}${getFilesByType('audio')}</select></div>
+                <div class="param-group"><label>Выходной формат</label><select id="format"><option value="mp4">MP4</option><option value="mkv">MKV</option></select></div>
+            `,
+            'speed': `
+                <div class="param-group"><label>Файл</label><select id="param1">${getFilesByType('video')}${getFilesByType('audio')}</select></div>
+                <div class="param-group"><label>Скорость</label>
+                    <select id="speedFactor">
+                        <option value="0.05">0.05x (экстремальное замедление 20x)</option>
+                        <option value="0.1">0.1x (сильное замедление 10x)</option>
+                        <option value="0.25">0.25x (замедление 4x)</option>
+                        <option value="0.33">0.33x (замедление 3x)</option>
+                        <option value="0.5">0.5x (замедление 2x)</option>
+                        <option value="0.66">0.66x (замедление 1.5x)</option>
+                        <option value="0.75">0.75x (чуть медленнее)</option>
+                        <option value="0.85">0.85x (немного медленнее)</option>
+                        <option value="0.9">0.9x (чуть-чуть медленнее)</option>
+                        <option value="0.95">0.95x (едва медленнее)</option>
+                        <option value="1.0" selected>1.0x (нормальная)</option>
+                        <option value="1.05">1.05x (едва быстрее)</option>
+                        <option value="1.1">1.1x (чуть-чуть быстрее)</option>
+                        <option value="1.25">1.25x (чуть быстрее)</option>
+                        <option value="1.5">1.5x (быстрее)</option>
+                        <option value="1.75">1.75x (заметно быстрее)</option>
+                        <option value="2.0">2.0x (в два раза быстрее)</option>
+                        <option value="2.5">2.5x (ускорение)</option>
+                        <option value="3.0">3.0x (сильное ускорение)</option>
+                    </select>
+                </div>
+                <div class="param-group"><label>Тип обработки</label>
+                    <select id="speedType">
+                        <option value="video">Видео (со звуком)</option>
+                        <option value="video-only">Только видео (звук не менять)</option>
+                        <option value="audio-only">Только аудио (видео не менять)</option>
+                    </select>
+                </div>
+                <div class="param-group"><label>Выходной формат</label>
+                    <select id="format">
+                        <option value="mp4">MP4</option>
+                        <option value="mkv">MKV</option>
+                        <option value="webm">WebM</option>
+                    </select>
+                </div>
+            `,
+        };
+        return templates[currentOperation] || templates['photo-music'];
+    }
+
+    function updateParametersUI() {
+        const panel = document.getElementById('parametersPanel');
+        if (panel) {
+            panel.innerHTML = getParametersHTML();
+        }
+    }
+
+    async function uploadFiles(files) {
+        const formData = new FormData();
+        for (const file of files) {
+            formData.append('files', file);
+        }
+        
+        try {
+            showToast('Загрузка файлов...', 'info');
+            const response = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await response.json();
+            if (data.success) {
+                const processedFiles = data.files.map(f => ({
+                    ...f,
+                    id: f.filename.replace(/\.[^/.]+$/, '')
+                }));
+                uploadedFiles.push(...processedFiles);
+                renderFileList();
+                updateParametersUI();
+                showToast(`Загружено ${data.files.length} файлов`, 'success');
+            } else {
+                showToast('Ошибка загрузки', 'error');
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            showToast('Ошибка загрузки файлов', 'error');
+        }
+    }
+
+    async function executeCommand() {
+        if (isProcessing) {
+            showToast('Обработка уже выполняется', 'info');
+            return;
+        }
+        
+        const params = {};
+        const allInputs = document.querySelectorAll('#parametersPanel select, #parametersPanel input');
+        allInputs.forEach(el => { 
+            params[el.id] = el.value; 
+        });
+        
+        let hasMissingFiles = false;
+        let missingFields = [];
+        
+        if (currentOperation === 'photo-music') {
+            if (!params.param1 || params.param1 === '') {
+                hasMissingFiles = true;
+                missingFields.push('изображение');
+            }
+            if (!params.param2 || params.param2 === '') {
+                hasMissingFiles = true;
+                missingFields.push('аудио');
+            }
+        } else if (currentOperation === 'merge') {
+            if (!params.param1 || params.param1 === '') {
+                hasMissingFiles = true;
+                missingFields.push('файл 1');
+            }
+            if (!params.param2 || params.param2 === '') {
+                hasMissingFiles = true;
+                missingFields.push('файл 2');
+            }
+        } else if (currentOperation !== 'metadata') {
+            if (!params.param1 || params.param1 === '') {
+                hasMissingFiles = true;
+                missingFields.push('исходный файл');
+            }
+        }
+        
+        if (hasMissingFiles) {
+            showToast(`Пожалуйста, выберите: ${missingFields.join(', ')}`, 'error');
+            return;
+        }
+        
+        if (currentOperation !== 'metadata') {
+            const requiredIds = [params.param1];
+            if (params.param2) requiredIds.push(params.param2);
+            
+            for (const id of requiredIds) {
+                if (!id) continue;
+                const found = uploadedFiles.find(f => f.id === id);
+                if (!found) {
+                    showToast(`Файл не найден. Попробуйте перезагрузить файлы.`, 'error');
+                    return;
+                }
+            }
+        }
+        
+        isProcessing = true;
+        const btn = document.getElementById('executeBtn');
+        btn.disabled = true;
+        
+        const progressSection = document.getElementById('progressSection');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const resultPreview = document.getElementById('resultPreview');
+        
+        progressSection.style.display = 'block';
+        resultPreview.style.display = 'none';
+        progressFill.style.width = '0%';
+        progressText.textContent = 'Обработка...';
+        
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 10;
+            if (progress >= 90) progress = 90;
+            progressFill.style.width = `${progress}%`;
+        }, 200);
+        
+        try {
+            const requestBody = {
+                operation: currentOperation,
+                params: params,
+                files: uploadedFiles
+            };
+            
+            console.log('Sending request:', requestBody);
+            
+            const response = await fetch('/api/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+            
+            const data = await response.json();
+            clearInterval(interval);
+            
+            if (response.ok && data.success) {
+                if (data.isInfo) {
+                    progressFill.style.width = '100%';
+                    progressText.textContent = 'Информация получена';
+                    showToast(`Информация получена`, 'success');
+                    setTimeout(() => {
+                        progressSection.style.display = 'none';
+                    }, 2000);
+                } else if (data.outputFile) {
+                    progressFill.style.width = '100%';
+                    progressText.textContent = 'Готово!';
+                    resultPreview.style.display = 'block';
+                    const downloadLink = document.getElementById('downloadLink');
+                    downloadLink.href = data.outputFile.url;
+                    downloadLink.download = data.outputFile.filename;
+                    downloadLink.textContent = `Скачать ${data.outputFile.filename}`;
+                    showToast('Операция успешно завершена', 'success');
+                    setTimeout(() => {
+                        progressSection.style.display = 'none';
+                    }, 3000);
+                }
+            } else {
+                throw new Error(data.error || 'Ошибка обработки');
+            }
+        } catch (error) {
+            console.error('Process error:', error);
+            clearInterval(interval);
+            progressFill.style.width = '100%';
+            progressText.textContent = 'Ошибка!';
+            showToast(error.message, 'error');
+            setTimeout(() => {
+                progressSection.style.display = 'none';
+            }, 2000);
+        } finally {
+            isProcessing = false;
+            btn.disabled = false;
+        }
+    }
+    
+    function buildOperationButtons() {
+        const container = document.getElementById('operationsGrid');
+        container.innerHTML = '';
+        OPERATIONS.forEach(op => {
+            const btn = document.createElement('button');
+            btn.className = `op-button ${currentOperation === op.id ? 'active' : ''}`;
+            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${op.icon}</svg><span>${op.label}</span>`;
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.op-button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentOperation = op.id;
+                updateParametersUI();
+            });
+            container.appendChild(btn);
+        });
+    }
+    
+    function setupFileHandlers() {
+        const zone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        
+        zone.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length) {
+                uploadFiles(Array.from(e.target.files));
+            }
+            fileInput.value = '';
+        });
+        
+        zone.addEventListener('dragover', (e) => { 
+            e.preventDefault(); 
+            zone.style.borderColor = 'var(--accent)'; 
+        });
+        
+        zone.addEventListener('dragleave', () => { 
+            zone.style.borderColor = 'var(--border-subtle)'; 
+        });
+        
+        zone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            zone.style.borderColor = 'var(--border-subtle)';
+            if (e.dataTransfer.files && e.dataTransfer.files.length) {
+                uploadFiles(Array.from(e.dataTransfer.files));
+            }
+        });
+    }
+    
+    function init() {
+        buildOperationButtons();
+        setupFileHandlers();
+        updateParametersUI();
+        document.getElementById('executeBtn').addEventListener('click', executeCommand);
+        showToast('FFmpeg Studio готов к работе', 'success');
+    }
+    
+    init();
+</script>
+</body>
+</html>
