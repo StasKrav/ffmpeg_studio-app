@@ -403,6 +403,31 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
 });
 
+// Добавьте этот endpoint после /api/upload
+app.post('/api/info', async (req, res) => {
+    const { fileId } = req.body;
+    
+    try {
+        const files = await fs.readdir(UPLOAD_DIR);
+        const file = files.find(f => f.startsWith(fileId));
+        
+        if (!file) {
+            return res.status(404).json({ error: 'Файл не найден' });
+        }
+        
+        const fullPath = path.join(UPLOAD_DIR, file);
+        
+        ffmpeg.ffprobe(fullPath, (err, metadata) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ success: true, metadata });
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Главный маршрут для index.html
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'), {
