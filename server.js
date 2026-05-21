@@ -169,11 +169,93 @@ app.post('/api/process', async (req, res) => {
                 const inputFile = findFileById(params.param1);
                 if (!inputFile) throw new Error('Файл не найден');
                 
-                command = ffmpeg(path.join(UPLOAD_DIR, inputFile.filename))
-                    .setStartTime(parseFloat(params.start) || 0)
-                    .duration(parseFloat(params.duration) || 10)
-                    .outputOptions(['-c copy'])
-                    .output(outputPath);
+                const inputPath = path.join(UPLOAD_DIR, inputFile.filename);
+                const trimMode = params.trimMode || 'start-duration';
+                const accuracy = params.accuracy || 'fast';
+                
+                // Функция преобразования времени в секунды
+                const timeToSeconds = (timeStr) => {
+                    if (!timeStr || timeStr === '') return 0;
+                    if (typeof timeStr === 'number') return timeStr;
+                    
+                    const str = String(timeStr).trim();
+                    // Если просто число
+                    if (/^\d+(\.\d+)?$/.test(str)) return parseFloat(str);
+                    
+                    // Формат HH:MM:SS или MM:SS
+                    const parts = str.split(':').map(Number);
+                    if (parts.length === 2) {
+                        return parts[0] * 60 + parts[1];
+                    } else if (parts.length === 3) {
+                        return parts[0] * 3600 + parts[1] * 60 + parts[2];
+                    }
+                    return parseFloat(str) || 0;
+                };
+                
+                let startTime = 0;
+                let duration = null;
+                let endTime = null;
+                
+                if (trimMode === 'start-duration') {
+                    startTime = timeToSeconds(params.startTime);
+                    duration = timeToSeconds(params.duration) || 10;
+                } else if (trimMode === 'start-end') {
+                    startTime = timeToSeconds(params.startTime);
+                    endTime = timeToSeconds(params.endTime);
+                    if (endTime > startTime) {
+                        duration = endTime - startTime;
+                    }
+                } else if (trimMode === 'end-duration') {
+                    const cutFromEnd = parseFloat(params.cutFromEnd) || 10;
+                    // Получаем общую длительность файла
+                    const getDuration = () => new Promise((resolve, reject) => {
+                        ffmpeg.ffprobe(inputPath, (err, metadata) => {
+                            if (err) reject(err);
+                            else resolve(metadata.format.duration);
+                        });
+                    });
+                    const totalDuration = await getDuration();
+                    startTime = Math.max(0, totalDuration - cutFromEnd);
+                    duration = cutFromEnd;
+                }
+                
+                // Обработка затухания
+                const fadeType = params.fadeType || 'none';
+                const fadeDuration = parseFloat(params.fadeDuration) || 2;
+                
+                const outputOptions = [];
+                
+                if (accuracy === 'fast') {
+                    outputOptions.push('-c copy');
+                } else {
+                    outputOptions.push('-c:v libx264', '-c:a aac');
+                }
+                
+                let filters = [];
+                if (fadeType === 'fade-in' || fadeType === 'both') {
+                    filters.push(`fade=t=in:st=${startTime}:d=${fadeDuration}`);
+                }
+                if (fadeType === 'fade-out' || fadeType === 'both') {
+                    const fadeOutStart = Math.max(0, (duration || 10) - fadeDuration);
+                    filters.push(`fade=t=out:st=${fadeOutStart}:d=${fadeDuration}`);
+                }
+                
+                const ff = ffmpeg(inputPath)
+                    .setStartTime(startTime)
+                    .duration(duration);
+                
+                if (filters.length > 0) {
+                    ff.videoFilters(filters.join(','));
+                    if (accuracy !== 'fast') {
+                        ff.outputOptions(['-c:v libx264', '-c:a aac']);
+                    } else {
+                        ff.outputOptions(['-c copy']);
+                    }
+                } else {
+                    ff.outputOptions(outputOptions);
+                }
+                
+                command = ff.output(outputPath);
                 break;
             }
             

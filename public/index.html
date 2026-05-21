@@ -13,20 +13,25 @@
         }
 
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-card: #1a1a24;
-            --bg-elevated: #22222e;
-            --border-subtle: #2a2a36;
-            --text-primary: #f0f0f8;
-            --text-secondary: #a0a0b8;
-            --text-muted: #6e6e86;
-            --accent: #5e6eff;
-            --accent-hover: #7b89ff;
-            --success: #2ecc71;
-            --error: #e74c3c;
-            --gradient-start: #5e6eff;
-            --gradient-end: #b86eff;
+            --bg-primary: #0f1115;
+            --bg-secondary: #171a21;
+            --bg-card: #171a21;
+            --bg-elevated: #232935;
+        
+            --border-subtle: #2a3038;
+        
+            --text-primary: #e7ebf2;
+            --text-secondary: #98a2b3;
+            --text-muted: #6e7787;
+        
+            --accent: #5b8cff;
+            --accent-hover: #79a1ff;
+        
+            --success: #35c97a;
+            --error: #ff6464;
+        
+            --gradient-start: #5b8cff;
+            --gradient-end: #5b8cff;
         }
 
         body {
@@ -42,7 +47,7 @@
         }
 
         .header {
-            margin-bottom: 32px;
+            margin-bottom: 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -51,41 +56,12 @@
         }
 
         .logo h1 {
-            font-size: 1.8rem;
+            font-size: 1rem;
             font-weight: 600;
             background: linear-gradient(135deg, #fff 30%, var(--accent) 80%);
             background-clip: text;
             -webkit-background-clip: text;
             color: transparent;
-        }
-
-        .logo p {
-            color: var(--text-secondary);
-            font-size: 0.85rem;
-            margin-top: 4px;
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: var(--bg-card);
-            padding: 8px 16px;
-            border-radius: 40px;
-            border: 1px solid var(--border-subtle);
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--success);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
         }
 
         .workspace {
@@ -550,8 +526,66 @@
             `,
             'trim': `
                 <div class="param-group"><label>Файл</label><select id="param1">${getFilesByType('video')}${getFilesByType('audio')}</select></div>
-                <div class="param-group"><label>Начало (сек)</label><input type="number" id="start" value="0" step="1"></div>
-                <div class="param-group"><label>Длительность (сек)</label><input type="number" id="duration" value="10" step="1"></div>
+                
+                <div class="param-group"><label>Способ обрезки</label>
+                    <select id="trimMode">
+                        <option value="start-duration">От начала и длительность</option>
+                        <option value="start-end">От начала до конца</option>
+                        <option value="end-duration">От конца (обрезать последние N сек)</option>
+                    </select>
+                </div>
+                
+                <div id="startTimeGroup" class="param-group">
+                    <label>Начало (HH:MM:SS или секунды)</label>
+                    <input type="text" id="startTime" placeholder="0  или 01:30:00  или 1:30">
+                </div>
+                
+                <div id="durationGroup" class="param-group">
+                    <label>Длительность (HH:MM:SS или секунды)</label>
+                    <input type="text" id="duration" placeholder="10  или 00:05:00">
+                </div>
+                
+                <div id="endTimeGroup" class="param-group" style="display:none;">
+                    <label>Конец (HH:MM:SS или секунды)</label>
+                    <input type="text" id="endTime" placeholder="01:30:00">
+                </div>
+                
+                <div id="cutFromEndGroup" class="param-group" style="display:none;">
+                    <label>Обрезать последние (секунды)</label>
+                    <input type="number" id="cutFromEnd" value="10" step="1">
+                </div>
+                
+                <div class="param-group">
+                    <label>Плавное затухание</label>
+                    <select id="fadeType">
+                        <option value="none">Без затухания</option>
+                        <option value="fade-in">Только в начале (fade in)</option>
+                        <option value="fade-out">Только в конце (fade out)</option>
+                        <option value="both">В начале и в конце</option>
+                    </select>
+                </div>
+                
+                <div id="fadeDurationGroup" class="param-group" style="display:none;">
+                    <label>Длительность затухания (секунды)</label>
+                    <input type="number" id="fadeDuration" value="2" step="0.5" min="0.1">
+                </div>
+                
+                <div class="param-group">
+                    <label>Точность (ключевые кадры)</label>
+                    <select id="accuracy">
+                        <option value="fast">Быстрая (точность до ключевого кадра)</option>
+                        <option value="accurate">Точная (перекодирование)</option>
+                    </select>
+                </div>
+                
+                <div class="param-group">
+                    <label>Выходной формат</label>
+                    <select id="format">
+                        <option value="mp4">MP4</option>
+                        <option value="mkv">MKV</option>
+                        <option value="webm">WebM</option>
+                    </select>
+                </div>
             `,
             'thumbnail': `
                 <div class="param-group"><label>Видеофайл</label><select id="param1">${getFilesByType('video')}</select></div>
@@ -837,5 +871,40 @@
     
     init();
 </script>
+<script>
+                    // Переключение полей в зависимости от режима обрезки
+                    const trimMode = document.getElementById('trimMode');
+                    const startGroup = document.getElementById('startTimeGroup');
+                    const durationGroup = document.getElementById('durationGroup');
+                    const endGroup = document.getElementById('endTimeGroup');
+                    const cutFromEndGroup = document.getElementById('cutFromEndGroup');
+                    
+                    if (trimMode) {
+                        trimMode.addEventListener('change', (e) => {
+                            startGroup.style.display = 'block';
+                            durationGroup.style.display = 'none';
+                            endGroup.style.display = 'none';
+                            cutFromEndGroup.style.display = 'none';
+                            
+                            if (e.target.value === 'start-duration') {
+                                durationGroup.style.display = 'block';
+                            } else if (e.target.value === 'start-end') {
+                                endGroup.style.display = 'block';
+                            } else if (e.target.value === 'end-duration') {
+                                startGroup.style.display = 'none';
+                                cutFromEndGroup.style.display = 'block';
+                            }
+                        });
+                    }
+                    
+                    const fadeType = document.getElementById('fadeType');
+                    const fadeDurationGroup = document.getElementById('fadeDurationGroup');
+                    if (fadeType) {
+                        fadeType.addEventListener('change', (e) => {
+                            fadeDurationGroup.style.display = e.target.value !== 'none' ? 'block' : 'none';
+                        });
+                    }
+                </script>                
+
 </body>
 </html>
