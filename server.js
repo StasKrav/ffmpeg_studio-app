@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,6 +20,9 @@ const OUTPUT_DIR = path.join(__dirname, 'outputs');
 
 await fs.ensureDir(UPLOAD_DIR);
 await fs.ensureDir(OUTPUT_DIR);
+
+// SSE-клиенты по jobId
+const progressClients = new Map();
 
 // Очистка старых файлов каждые 30 минут
 setInterval(async () => {
@@ -39,13 +43,6 @@ setInterval(async () => {
     }
 }, 30 * 60 * 1000);
 
-// Middleware для правильной кодировки
-app.use((req, res, next) => {
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    next();
-});
-
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -58,7 +55,6 @@ app.use(express.static('public', {
 }));
 app.use('/uploads', express.static(UPLOAD_DIR));
 app.use('/outputs', express.static(OUTPUT_DIR));
-app.use(express.static('public'));
 
 // Настройка multer
 const storage = multer.diskStorage({
@@ -90,11 +86,68 @@ app.post('/api/upload', upload.array('files'), (req, res) => {
     }
 });
 
+// SSE endpoint для прогресса
+app.get('/api/progress/:jobId', (req, res) => {
+    const { jobId } = req.params;
+
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+    });
+
+    // Регистрируем клиента
+    if (!progressClients.has(jobId)) {
+        progressClients.set(jobId, []);
+    }
+    progressClients.get(jobId).push(res);
+
+    // Отправляем начальное событие
+    res.write(`data: ${JSON.stringify({ percent: 0, status: 'started' })}\n\n`);
+
+    // При отключении клиента — удаляем из списка
+    req.on('close', () => {
+        const clients = progressClients.get(jobId);
+        if (clients) {
+            const idx = clients.indexOf(res);
+            if (idx !== -1) clients.splice(idx, 1);
+            if (clients.length === 0) progressClients.delete(jobId);
+        }
+    });
+});
+
+// Вспомогательная функция для отправки SSE-событий всем клиентам jobId
+function sendProgress(jobId, data) {
+    const clients = progressClients.get(jobId);
+    if (!clients) return;
+    const msg = `data: ${JSON.stringify(data)}\n\n`;
+    for (const client of clients) {
+        try {
+            client.write(msg);
+        } catch (e) {
+            // клиент отключился
+        }
+    }
+}
+
+// Закрыть SSE для jobId
+function closeProgress(jobId) {
+    const clients = progressClients.get(jobId);
+    if (!clients) return;
+    for (const client of clients) {
+        try {
+            client.end();
+        } catch (e) {}
+    }
+    progressClients.delete(jobId);
+}
+
 // Обработка команд
 app.post('/api/process', async (req, res) => {
-    const { operation, params, files } = req.body;
+    const { operation, params, files, jobId } = req.body;
     
-    console.log('Получен запрос:', { operation, params });
+    console.log('Получен запрос:', { operation, params, jobId });
     
     try {
         const findFileById = (fileId) => {
@@ -359,20 +412,42 @@ app.post('/api/process', async (req, res) => {
         }
         
         if (command) {
+            // Отправляем прогресс 10% — начало обработки
+            if (jobId) sendProgress(jobId, { percent: 10, status: 'processing' });
+            
             await new Promise((resolve, reject) => {
                 command
+                    .on('progress', (info) => {
+                        if (jobId && info.percent !== undefined) {
+                            // Нормализуем процент от 10 до 95
+                            const normalizedPercent = 10 + Math.round(info.percent * 0.85);
+                            sendProgress(jobId, { 
+                                percent: normalizedPercent, 
+                                status: 'processing',
+                                fps: info.fps,
+                                speed: info.speed
+                            });
+                        }
+                    })
                     .on('end', () => {
                         console.log('FFmpeg завершил работу');
+                        if (jobId) sendProgress(jobId, { percent: 100, status: 'completed' });
                         resolve();
                     })
                     .on('error', (err) => {
                         console.error('FFmpeg ошибка:', err);
+                        if (jobId) sendProgress(jobId, { percent: 0, status: 'error', error: err.message });
                         reject(err);
                     })
                     .run();
             });
             
             const stats = await fs.stat(outputPath);
+            
+            // Закрываем SSE через небольшую задержку, чтобы клиент успел получить 100%
+            setTimeout(() => {
+                if (jobId) closeProgress(jobId);
+            }, 500);
             
             res.json({
                 success: true,
@@ -387,6 +462,10 @@ app.post('/api/process', async (req, res) => {
         
     } catch (error) {
         console.error('Ошибка обработки:', error);
+        if (jobId) {
+            sendProgress(jobId, { percent: 0, status: 'error', error: error.message });
+            setTimeout(() => closeProgress(jobId), 500);
+        }
         res.status(500).json({ error: error.message });
     }
 });

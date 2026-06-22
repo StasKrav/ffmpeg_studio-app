@@ -3,485 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/style.css">
     <title>FFmpeg Studio — Профессиональный медиа процессор</title>
-<style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --bg-primary: #0f1115;
-            --bg-secondary: #171a21;
-            --bg-card: #171a21;
-            --bg-elevated: #232935;
-        
-            --border-subtle: #2a3038;
-        
-            --text-primary: #e7ebf2;
-            --text-secondary: #98a2b3;
-            --text-muted: #6e7787;
-        
-            --accent: #5b8cff;
-            --accent-hover: #79a1ff;
-        
-            --success: #35c97a;
-            --error: #ff6464;
-        
-            --gradient-start: #5b8cff;
-            --gradient-end: #5b8cff;
-        }
-
-        body {
-            background: var(--bg-primary);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            color: var(--text-primary);
-            padding: 32px 24px;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .header {
-            margin-bottom: 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-
-        .logo h1 {
-            font-size: 1rem;
-            font-weight: 600;
-            background: linear-gradient(135deg, #fff 30%, var(--accent) 80%);
-            background-clip: text;
-            -webkit-background-clip: text;
-            color: transparent;
-        }
-
-        .workspace {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            margin-bottom: 24px;
-        }
-
-        @media (max-width: 768px) {
-            .workspace {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .card {
-            background: var(--bg-card);
-            border-radius: 18px;
-            border: 1px solid var(--border-subtle);
-            overflow: hidden;
-        }
-
-        .card-header {
-            padding: 18px 24px;
-            border-bottom: 1px solid var(--border-subtle);
-        }
-
-        .card-header h2 {
-            font-size: 0.9rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            color: var(--text-secondary);
-        }
-
-        .card-body {
-            padding: 24px;
-        }
-
-        .upload-zone {
-            border: 1.5px dashed var(--border-subtle);
-            border-radius: 12px;
-            background: var(--bg-secondary);
-            padding: 32px 24px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-bottom: 20px;
-        }
-
-        .upload-zone:hover {
-            border-color: var(--accent);
-            background: rgba(94, 110, 255, 0.08);
-        }
-
-        .file-list {
-            max-height: 300px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .file-item {
-            background: var(--bg-secondary);
-            border-radius: 10px;
-            padding: 10px 14px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid var(--border-subtle);
-            transition: all 0.2s;
-        }
-
-        .file-item:hover {
-            border-color: var(--accent);
-            background: var(--bg-elevated);
-        }
-
-        .operation-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-bottom: 28px;
-        }
-
-        @media (max-width: 640px) {
-            .operation-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        .op-button {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-subtle);
-            padding: 10px 6px;
-            border-radius: 10px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .op-button svg {
-            width: 18px;
-            height: 18px;
-            stroke: currentColor;
-        }
-
-        .op-button:hover {
-            background: var(--bg-elevated);
-            border-color: var(--accent);
-            color: var(--text-primary);
-        }
-
-        .op-button.active {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: white;
-        }
-
-        .param-group {
-            margin-bottom: 20px;
-        }
-
-        .param-group label {
-            display: block;
-            font-size: 0.75rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-        }
-
-        .param-group select,
-        .param-group input {
-            width: 100%;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-subtle);
-            border-radius: 10px;
-            padding: 10px 14px;
-            font-size: 0.85rem;
-            color: var(--text-primary);
-        }
-
-        .param-group select:focus,
-        .param-group input:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
-        .param-group option {
-            background: var(--bg-secondary);
-        }
-
-        .btn-primary {
-            width: 100%;
-            background: linear-gradient(105deg, var(--gradient-start), var(--gradient-end));
-            border: none;
-            padding: 12px 16px;
-            border-radius: 40px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            color: white;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            transform: translateY(-1px);
-            filter: brightness(1.05);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .progress-section {
-            margin-top: 20px;
-            display: none;
-        }
-
-        .progress-bar {
-            height: 4px;
-            background: var(--border-subtle);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
-            transition: width 0.2s linear;
-        }
-
-        .result-preview {
-            margin-top: 16px;
-            padding: 16px;
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            display: none;
-        }
-
-        .result-preview a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: var(--bg-elevated);
-            border: 1px solid var(--border-subtle);
-            border-radius: 12px;
-            padding: 12px 20px;
-            transform: translateX(400px);
-            transition: transform 0.3s ease;
-            z-index: 1000;
-        }
-
-        .toast.show {
-            transform: translateX(0);
-        }
-
-        .toast.success { solid var(--success); }
-        .toast.error { solid var(--error); }
-        
-        .empty-option {
-            color: var(--text-muted);
-        }
-
-        /* Элегантный появляющийся скролл */
-        .file-list {
-            max-height: 300px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        
-        .file-list::-webkit-scrollbar {
-            width: 4px;
-        }
-        
-        .file-list::-webkit-scrollbar-track {
-            background: transparent;
-            border-radius: 10px;
-        }
-        
-        .file-list::-webkit-scrollbar-thumb {
-            background: var(--text-muted);
-            border-radius: 10px;
-            opacity: 0;
-            transition: all 0.2s;
-        }
-        
-        .file-list:hover::-webkit-scrollbar-thumb {
-            opacity: 1;
-        }
-        
-        .file-list::-webkit-scrollbar-thumb:hover {
-            background: var(--accent);
-        }
-        
-        /* Firefox */
-        .file-list {
-            scrollbar-width: thin;
-            scrollbar-color: var(--text-muted) transparent;
-        }
-        
-        .file-list:hover {
-            scrollbar-color: var(--accent) transparent;
-        }
-
-        .timeline-container {
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            padding: 16px;
-            margin: 16px 0;
-            position: relative;
-        }
-        
-        .timeline-canvas {
-            width: 100%;
-            height: 120px;
-            background: #0d0d12;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-bottom: 12px;
-        }
-        
-        .timeline-controls {
-            display: flex;
-            gap: 12px;
-            margin-top: 12px;
-            flex-wrap: wrap;
-        }
-        
-        .timeline-controls input {
-            flex: 1;
-            min-width: 100px;
-        }
-        
-        .time-markers {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 8px;
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-        
-        .preview-video {
-            width: 100%;
-            max-height: 360px;
-            background: #000;
-            border-radius: 12px;
-            margin-bottom: 16px;
-        }
-        
-        .zoom-control {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        
-        .zoom-control button {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-primary);
-            padding: 4px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        
-        .frame-preview {
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding: 12px;
-            background: var(--bg-secondary);
-            border-radius: 8px;
-            margin-top: 12px;
-        }
-        
-        .frame-preview img {
-            height: 60px;
-            border-radius: 4px;
-            cursor: pointer;
-            border: 2px solid transparent;
-        }
-        
-        .frame-preview img:hover {
-            border-color: var(--accent);
-        }
-        
-        .trim-buttons {
-            display: flex;
-            gap: 12px;
-            margin-top: 16px;
-        }
-        
-        .trim-buttons button {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .btn-apply {
-            background: var(--success);
-            color: white;
-        }
-        
-        .btn-cancel {
-            background: var(--bg-elevated);
-            color: var(--text-secondary);
-        }
-        
-        .btn-preview {
-            background: var(--accent);
-            color: white;
-        }
-        
-        .time-input-group {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            background: var(--bg-secondary);
-            padding: 8px 12px;
-            border-radius: 8px;
-        }
-        
-        .time-input-group input {
-            width: 70px;
-            text-align: center;
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: 4px;
-            padding: 4px 8px;
-            color: var(--text-primary);
-        }
-
-</style>
 </head>
+
 <body>
 <div class="container">
     <div class="header">
@@ -1243,8 +768,8 @@
         
         const params = {};
         const allInputs = document.querySelectorAll('#parametersPanel select, #parametersPanel input');
-        allInputs.forEach(el => { 
-            params[el.id] = el.value; 
+        allInputs.forEach(el => {
+            params[el.id] = el.value;
         });
         
         let hasMissingFiles = false;
@@ -1328,20 +853,46 @@
         progressSection.style.display = 'block';
         resultPreview.style.display = 'none';
         progressFill.style.width = '0%';
-        progressText.textContent = 'Обработка...';
+        progressText.textContent = 'Подключение...';
         
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += Math.random() * 10;
-            if (progress >= 90) progress = 90;
-            progressFill.style.width = `${progress}%`;
-        }, 200);
+        // Генерируем уникальный ID задачи
+        const jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        
+        // Подключаемся к SSE для получения реального прогресса
+        const eventSource = new EventSource(`/api/progress/${jobId}`);
+        
+        eventSource.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.percent !== undefined) {
+                    progressFill.style.width = `${data.percent}%`;
+                }
+                if (data.status === 'processing') {
+                    let text = `Обработка... ${data.percent}%`;
+                    if (data.fps) text += ` | ${data.fps} fps`;
+                    if (data.speed) text += ` x${data.speed}`;
+                    progressText.textContent = text;
+                } else if (data.status === 'completed') {
+                    progressText.textContent = 'Готово!';
+                } else if (data.status === 'error') {
+                    progressText.textContent = 'Ошибка!';
+                    showToast(data.error || 'Ошибка обработки', 'error');
+                }
+            } catch (e) {
+                // ignore parse errors
+            }
+        };
+        
+        eventSource.onerror = () => {
+            // SSE может закрыться после завершения — это нормально
+        };
         
         try {
             const requestBody = {
                 operation: currentOperation,
                 params: params,
-                files: uploadedFiles
+                files: uploadedFiles,
+                jobId: jobId
             };
             
             console.log('Sending request:', requestBody);
@@ -1353,7 +904,6 @@
             });
             
             const data = await response.json();
-            clearInterval(interval);
             
             if (response.ok && data.success) {
                 if (data.isInfo) {
@@ -1381,7 +931,6 @@
             }
         } catch (error) {
             console.error('Process error:', error);
-            clearInterval(interval);
             progressFill.style.width = '100%';
             progressText.textContent = 'Ошибка!';
             showToast(error.message, 'error');
@@ -1389,6 +938,7 @@
                 progressSection.style.display = 'none';
             }, 2000);
         } finally {
+            eventSource.close();
             isProcessing = false;
             btn.disabled = false;
         }

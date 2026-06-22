@@ -23,7 +23,7 @@
   --error: #ff6464;
 
   --gradient-start: #5b8cff;
-  --gradient-end: #5b8cff;
+  --gradient-end: #a78bfa;
 }
 
 body {
@@ -305,55 +305,17 @@ body {
   transform: translateX(0);
 }
 
-/* .toast.success { solid var(--success); } */
-/* .toast.error { solid var(--error); } */
+.toast.success {
+  border: 1px solid var(--success);
+}
+.toast.error {
+  border: 1px solid var(--error);
+}
 
 .empty-option {
   color: var(--text-muted);
 }
 
-/* Элегантный появляющийся скролл */
-.file-list {
-  max-height: 300px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.file-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.file-list::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 10px;
-}
-
-.file-list::-webkit-scrollbar-thumb {
-  background: var(--text-muted);
-  border-radius: 10px;
-  opacity: 0;
-  transition: all 0.2s;
-}
-
-.file-list:hover::-webkit-scrollbar-thumb {
-  opacity: 1;
-}
-
-.file-list::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
-}
-
-/* Firefox */
-.file-list {
-  scrollbar-width: thin;
-  scrollbar-color: var(--text-muted) transparent;
-}
-
-.file-list:hover {
-  scrollbar-color: var(--accent) transparent;
-}
 
 .timeline-container {
   background: var(--bg-secondary);
