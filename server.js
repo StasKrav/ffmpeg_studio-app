@@ -58,6 +58,7 @@ app.use(express.static('public', {
 }));
 app.use('/uploads', express.static(UPLOAD_DIR));
 app.use('/outputs', express.static(OUTPUT_DIR));
+app.use(express.static('public'));
 
 // Настройка multer
 const storage = multer.diskStorage({

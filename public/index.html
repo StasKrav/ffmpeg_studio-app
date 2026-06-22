@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FFmpeg Studio — Профессиональный медиа процессор</title>
-    <style>
-        /* (стили те же, что были, без изменений) */
+<style>
         * {
             margin: 0;
             padding: 0;
@@ -481,14 +480,13 @@
             color: var(--text-primary);
         }
 
-    </style>
+</style>
 </head>
 <body>
 <div class="container">
     <div class="header">
         <div class="logo">
             <h1>FFmpeg Studio</h1>
-            <!-- <p>Профессиональная обработка медиафайлов</p> -->
         </div>
     </div>
 
@@ -504,7 +502,6 @@
                         <path d="M4 16V18C4 19.1046 4.89543 20 6 20H18C19.1046 20 20 19.1046 20 20V16"/>
                     </svg>
                     <div style="font-weight: 500; margin-top: 8px;">Загрузите файлы</div>
-                    <!-- <small style="color: var(--text-muted);">Нажмите или перетащите</small> -->
                     <input type="file" id="fileInput" multiple accept="video/*,audio/*,image/*" style="display: none;">
                 </div>
                 <div id="fileListContainer" class="file-list"></div>
@@ -557,15 +554,15 @@
         <!-- Информация о файле -->
         <div style="display: flex; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
             <div class="time-input-group">
-                <span>📹 Файл:</span>
+                <span>Файл:</span>
                 <span id="trimFileName" style="color: var(--accent);"></span>
             </div>
             <div class="time-input-group">
-                <span>⏱ Длительность:</span>
+                <span>Длительность:</span>
                 <span id="trimTotalDuration">0:00</span>
             </div>
             <div class="time-input-group">
-                <span>📊 Размер:</span>
+                <span>Размер:</span>
                 <span id="trimFileSize"></span>
             </div>
         </div>
@@ -639,7 +636,6 @@
     };
     
     // Открыть визуальную обрезку
-    // Открыть визуальную обрезку (переименовано)
     async function openVisualTrimTrim() {
         const fileSelect = document.getElementById('param1');
         if (!fileSelect || !fileSelect.value) {
@@ -909,23 +905,38 @@
         document.getElementById('trimCommandPreview').innerHTML = `<span style="color: #5e6eff;"># FFmpeg команда для обрезки</span>\n${command}`;
     }
     
-    // Применить обрезку
+    // Применить обрезку (только временные метки, без автоматического выполнения)
     function applyVisualTrim() {
-        // Устанавливаем параметры в основную форму обрезки
+        const fileSelect = document.getElementById('param1');
+        if (!fileSelect || !fileSelect.value) {
+            showToast('Сначала выберите файл', 'error');
+            return;
+        }
+        
         const startInput = document.getElementById('startTime');
         const durationInput = document.getElementById('duration');
-        const fileSelect = document.getElementById('param1');
         
         if (startInput) startInput.value = visualTrimData.startSec;
         if (durationInput) durationInput.value = visualTrimData.endSec - visualTrimData.startSec;
-        if (fileSelect) fileSelect.value = visualTrimData.fileId;
         
-        // Переключаемся на вкладку обрезки
-        const trimButton = document.querySelector('.op-button[data-op="trim"]');
-        if (trimButton) trimButton.click();
+        // ДОБАВИТЬ ЭТУ СТРОКУ
+        window.lastVisualTrimData = {
+            startSec: visualTrimData.startSec,
+            duration: visualTrimData.endSec - visualTrimData.startSec,
+            fileId: visualTrimData.fileId
+        };
+        
+        const trimModeSelect = document.getElementById('trimMode');
+        if (trimModeSelect) {
+            trimModeSelect.value = 'start-duration';
+            trimModeSelect.dispatchEvent(new Event('change'));
+        }
         
         closeVisualTrim();
-        showToast('Параметры обрезки применены! Нажмите "Выполнить обработку"', 'success');
+        
+        setTimeout(() => {
+            showToast('✓ Временные метки загружены. Настройте затухание и точность.', 'success');
+        }, 100);
     }
     
     // Закрыть модальное окно
@@ -1238,6 +1249,28 @@
         
         let hasMissingFiles = false;
         let missingFields = [];
+
+        // В executeCommand, после сбора params, но перед проверкой файлов
+        if (currentOperation === 'trim') {
+            // Если поля пустые, но есть сохранённые данные из визуального редактора
+            if ((!params.startTime || params.startTime === '') && window.lastVisualTrimData) {
+                params.startTime = window.lastVisualTrimData.startSec;
+                params.duration = window.lastVisualTrimData.duration;
+                params.param1 = window.lastVisualTrimData.fileId;
+                params.trimMode = 'start-duration';
+                
+                // Обновляем DOM элементы
+                const startInput = document.getElementById('startTime');
+                const durationInput = document.getElementById('duration');
+                const fileSelect = document.getElementById('param1');
+                const trimModeSelect = document.getElementById('trimMode');
+                
+                if (startInput) startInput.value = params.startTime;
+                if (durationInput) durationInput.value = params.duration;
+                if (fileSelect) fileSelect.value = params.param1;
+                if (trimModeSelect) trimModeSelect.value = 'start-duration';
+            }
+        }
         
         if (currentOperation === 'photo-music') {
             if (!params.param1 || params.param1 === '') {
