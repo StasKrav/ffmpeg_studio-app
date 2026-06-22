@@ -427,7 +427,8 @@
     // Обновление команды FFmpeg
     function updateFFmpegCommand() {
         const command = `ffmpeg -i "${visualTrimData.file.originalName}" -ss ${visualTrimData.startSec.toFixed(3)} -t ${(visualTrimData.endSec - visualTrimData.startSec).toFixed(3)} -c copy trimmed_output.mp4`;
-        document.getElementById('trimCommandPreview').innerHTML = `<span style="color: #5e6eff;"># FFmpeg команда для обрезки</span>\n${command}`;
+        const el = document.getElementById('trimCommandPreview');
+        el.textContent = `# FFmpeg команда для обрезки\n${command}`;
     }
     
     // Применить обрезку (только временные метки, без автоматического выполнения)

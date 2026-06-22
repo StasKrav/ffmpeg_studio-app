@@ -1,5 +1,5 @@
 import express from 'express';
-import multer from 'multer';
+import multer, { MulterError } from 'multer';
 import ffmpeg from 'fluent-ffmpeg';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
@@ -71,19 +71,31 @@ const upload = multer({
 });
 
 // Загрузка файлов
-app.post('/api/upload', upload.array('files'), (req, res) => {
-    try {
-        const files = req.files.map(file => ({
-            id: path.basename(file.filename, path.extname(file.filename)),
-            originalName: file.originalname,
-            filename: file.filename,
-            size: file.size,
-            url: `/uploads/${file.filename}`
-        }));
-        res.json({ success: true, files });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+app.post('/api/upload', (req, res, next) => {
+    upload.array('files')(req, res, (err) => {
+        if (err) {
+            if (err instanceof MulterError) {
+                if (err.code === 'LIMIT_FILE_SIZE') {
+                    return res.status(413).json({ error: 'Файл слишком большой. Максимум 500MB.' });
+                }
+                return res.status(400).json({ error: `Ошибка загрузки: ${err.message}` });
+            }
+            return res.status(500).json({ error: err.message });
+        }
+        
+        try {
+            const files = req.files.map(file => ({
+                id: path.basename(file.filename, path.extname(file.filename)),
+                originalName: file.originalname,
+                filename: file.filename,
+                size: file.size,
+                url: `/uploads/${file.filename}`
+            }));
+            res.json({ success: true, files });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
 });
 
 // SSE endpoint для прогресса
@@ -150,13 +162,26 @@ app.post('/api/process', async (req, res) => {
     console.log('Получен запрос:', { operation, params, jobId });
     
     try {
-        const findFileById = (fileId) => {
+        // Валидация числовых параметров
+        const toNumber = (val, fallback, min, max) => {
+            const num = parseFloat(val);
+            if (isNaN(num)) return fallback;
+            if (min !== undefined && num < min) return fallback;
+            if (max !== undefined && num > max) return fallback;
+            return num;
+        };
+
+        const findFileById = async (fileId) => {
             if (!fileId) return null;
             const file = files.find(f => f.id === fileId);
             if (!file) return null;
             const filePath = path.join(UPLOAD_DIR, file.filename);
-            if (!fs.existsSync(filePath)) return null;
-            return file;
+            try {
+                await fs.stat(filePath);
+                return file;
+            } catch {
+                return null;
+            }
         };
         
         const outputFilename = `${uuidv4()}.${params.format || 'mp4'}`;
@@ -166,8 +191,8 @@ app.post('/api/process', async (req, res) => {
         
         switch (operation) {
             case 'photo-music': {
-                const imageFile = findFileById(params.param1);
-                const audioFile = findFileById(params.param2);
+                const imageFile = await findFileById(params.param1);
+                const audioFile = await findFileById(params.param2);
                 if (!imageFile) throw new Error('Изображение не найдено');
                 if (!audioFile) throw new Error('Аудио не найдено');
                 
@@ -177,7 +202,7 @@ app.post('/api/process', async (req, res) => {
                     .input(path.join(UPLOAD_DIR, audioFile.filename))
                     .outputOptions([
                         '-c:v libx264',
-                        `-crf ${params.quality || 23}`,
+                        `-crf ${toNumber(params.quality, 23, 0, 51)}`,
                         '-preset medium',
                         '-c:a aac',
                         '-b:a 192k',
@@ -189,7 +214,7 @@ app.post('/api/process', async (req, res) => {
             }
             
             case 'convert': {
-                const inputFile = findFileById(params.param1);
+                const inputFile = await findFileById(params.param1);
                 if (!inputFile) throw new Error('Файл не найден');
                 
                 command = ffmpeg(path.join(UPLOAD_DIR, inputFile.filename))
@@ -199,7 +224,7 @@ app.post('/api/process', async (req, res) => {
             }
             
             case 'extract': {
-                const inputFile = findFileById(params.param1);
+                const inputFile = await findFileById(params.param1);
                 if (!inputFile) throw new Error('Файл не найден');
                 
                 const audioCodec = params.format === 'mp3' ? 'libmp3lame' : params.format;
@@ -210,17 +235,17 @@ app.post('/api/process', async (req, res) => {
             }
             
             case 'compress': {
-                const inputFile = findFileById(params.param1);
+                const inputFile = await findFileById(params.param1);
                 if (!inputFile) throw new Error('Файл не найден');
                 
                 command = ffmpeg(path.join(UPLOAD_DIR, inputFile.filename))
-                    .outputOptions(['-c:v libx264', `-crf ${params.quality || 23}`, '-c:a aac', '-b:a 128k'])
+                    .outputOptions(['-c:v libx264', `-crf ${toNumber(params.quality, 23, 0, 51)}`, '-c:a aac', '-b:a 128k'])
                     .output(outputPath);
                 break;
             }
             
             case 'trim': {
-                const inputFile = findFileById(params.param1);
+                const inputFile = await findFileById(params.param1);
                 if (!inputFile) throw new Error('Файл не найден');
                 
                 const inputPath = path.join(UPLOAD_DIR, inputFile.filename);
@@ -260,7 +285,7 @@ app.post('/api/process', async (req, res) => {
                         duration = endTime - startTime;
                     }
                 } else if (trimMode === 'end-duration') {
-                    const cutFromEnd = parseFloat(params.cutFromEnd) || 10;
+                    const cutFromEnd = toNumber(params.cutFromEnd, 10, 0.1);
                     // Получаем общую длительность файла
                     const getDuration = () => new Promise((resolve, reject) => {
                         ffmpeg.ffprobe(inputPath, (err, metadata) => {
@@ -275,7 +300,7 @@ app.post('/api/process', async (req, res) => {
                 
                 // Обработка затухания
                 const fadeType = params.fadeType || 'none';
-                const fadeDuration = parseFloat(params.fadeDuration) || 2;
+                const fadeDuration = toNumber(params.fadeDuration, 2, 0.1);
                 
                 const outputOptions = [];
                 
@@ -314,41 +339,45 @@ app.post('/api/process', async (req, res) => {
             }
             
             case 'thumbnail': {
-                const inputFile = findFileById(params.param1);
+                const inputFile = await findFileById(params.param1);
                 if (!inputFile) throw new Error('Файл не найден');
                 
+                const validSizes = ['640x480', '1280x720', '1920x1080', '320x240', '854x480'];
+                const thumbSize = validSizes.includes(params.size) ? params.size : '640x480';
                 command = ffmpeg(path.join(UPLOAD_DIR, inputFile.filename))
-                    .seekInput(parseFloat(params.time) || 5)
+                    .seekInput(toNumber(params.time, 5, 0))
                     .frames(1)
-                    .outputOptions([`-vf scale=${params.size || '640x480'}`])
+                    .outputOptions([`-vf scale=${thumbSize}`])
                     .output(outputPath);
                 break;
             }
             
             case 'merge': {
-                const file1 = findFileById(params.param1);
-                const file2 = findFileById(params.param2);
+                const file1 = await findFileById(params.param1);
+                const file2 = await findFileById(params.param2);
                 if (!file1) throw new Error('Файл 1 не найден');
                 if (!file2) throw new Error('Файл 2 не найден');
                 
                 const listPath = path.join(UPLOAD_DIR, `list_${uuidv4()}.txt`);
                 await fs.writeFile(listPath, `file '${path.join(UPLOAD_DIR, file1.filename)}'\nfile '${path.join(UPLOAD_DIR, file2.filename)}'`, 'utf8');
                 
+                const cleanupList = () => fs.remove(listPath).catch(() => {});
                 command = ffmpeg()
                     .input(listPath)
                     .inputOptions(['-f concat', '-safe 0'])
                     .outputOptions(['-c copy'])
                     .output(outputPath)
-                    .on('end', () => fs.remove(listPath).catch(() => {}));
+                    .on('end', cleanupList)
+                    .on('error', cleanupList);
                 break;
             }
             
             case 'speed': {
-                const inputFile = findFileById(params.param1);
+                const inputFile = await findFileById(params.param1);
                 if (!inputFile) throw new Error(`Файл не найден: ${params.param1}`);
                 
                 const inputPath = path.join(UPLOAD_DIR, inputFile.filename);
-                let speed = parseFloat(params.speedFactor) || 1.0;
+                let speed = toNumber(params.speedFactor, 1.0, 0.01, 100);
                 const speedType = params.speedType || 'video';
                 
                 console.log(`Изменение скорости: ${speed}x, тип: ${speedType}`);
